@@ -1,7 +1,5 @@
-
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import Modal from 'react-native-modal';
+import { View, StyleSheet, Modal, TouchableWithoutFeedback } from 'react-native';
 import SettingsScreen from '../screens/SettingsScreen';
 
 interface SettingsModalProps {
@@ -12,23 +10,28 @@ interface SettingsModalProps {
 const SettingsModal: React.FC<SettingsModalProps> = ({ isVisible, onClose }) => {
   return (
     <Modal
-      isVisible={isVisible}
-      onBackdropPress={onClose}
-      onBackButtonPress={onClose}
-      style={styles.modal}
-      propagateSwipe
-      avoidKeyboard
+      visible={isVisible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
     >
-      <View style={styles.container}>
-        <SettingsScreen onClose={onClose} />
-      </View>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.backdrop}>
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+            <View style={styles.container}>
+              <SettingsScreen onClose={onClose} />
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modal: {
-    margin: 0,
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
