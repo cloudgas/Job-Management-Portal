@@ -1,154 +1,72 @@
+import React, { useState, useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Image, TouchableOpacity, Animated } from 'react-native';
-import { useState, useEffect, useRef } from 'react';
+import { Dimensions, View, Text, ActivityIndicator } from 'react-native';
+import { BasicProvider } from '@basictech/expo';
+import { schema } from './basic.config';
+import { SettingsProvider } from './context/SettingsContext';
+
+// Import our screens
+import HomeScreen from './screens/HomeScreen';
+import MobileHomeScreen from './screens/MobileHomeScreen';
 
 export default function App() {
-  const [theme, setTheme] = useState('light');
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const [isLargeScreen, setIsLargeScreen] = useState(
+    Dimensions.get('window').width >= 768
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fade in animation when component mounts
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 4,
-        tension: 40,
-        useNativeDriver: true,
-      })
-    ]).start();
-  });
+    // Set up dimension change listener
+    const updateLayout = () => {
+      setIsLargeScreen(Dimensions.get('window').width >= 768);
+    };
 
-  const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
-  };
+    // Simulate loading
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
 
-  const logoSource = theme === 'light' 
-    ? require('./assets/images/appacella-logo-blue.png')
-    : require('./assets/images/appacella-logo-white.png');
+    Dimensions.addEventListener('change', updateLayout);
 
+    return () => {
+      clearTimeout(timer);
+      // Clean up
+    };
+  }, []);
+
+  // Error handling
+  if (error) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: 'red' }}>
+          Error
+        </Text>
+        <Text style={{ textAlign: 'center', marginBottom: 20 }}>{error}</Text>
+      </View>
+    );
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#333" />
+        <Text style={{ marginTop: 20 }}>Loading Job History Tracker...</Text>
+      </View>
+    );
+  }
+
+  // Main app
   return (
-    <View style={[
-      styles.container,
-      { backgroundColor: theme === 'light' ? '#f0f8ff' : '#1a1a2e' }
-    ]}>
-      <Animated.View style={[
-        styles.content,
-        { 
-          opacity: fadeAnim,
-          transform: [{ scale: scaleAnim }]
-        }
-      ]}>
-        <Image 
-          source={logoSource} 
-          style={styles.logo} 
-          resizeMode="contain"
-        />
-        
-        <Text style={[
-          styles.title,
-          { color: theme === 'light' ? '#333' : '#fff' }
-        ]}>
-          Welcome to Kiki
-        </Text>
-        
-        <Text style={[
-          styles.subtitle,
-          { color: theme === 'light' ? '#666' : '#ccc' }
-        ]}>
-          Tell the AI what to make!
-        </Text>
-
-        <View style={styles.reactContainer}>
-          <Text style={[
-            styles.poweredBy,
-            { color: theme === 'light' ? '#666' : '#ccc' }
-          ]}>
-            Powered by
-          </Text>
-          <Image 
-            source={require('./assets/images/react-logo.png')} 
-            style={styles.reactLogo} 
-            resizeMode="contain"
-          />
-        </View>
-      </Animated.View>
-
-      <TouchableOpacity 
-        style={[
-          styles.themeToggle,
-          { backgroundColor: theme === 'light' ? '#333' : '#f0f8ff' }
-        ]} 
-        onPress={toggleTheme}
-      >
-        <Text style={{ 
-          color: theme === 'light' ? '#fff' : '#333',
-          fontWeight: 'bold'
-        }}>
-          {theme === 'light' ? '🌙' : '☀️'}
-        </Text>
-      </TouchableOpacity>
-      
-      <StatusBar style={theme === 'light' ? 'dark' : 'light'} />
-    </View>
+    <SafeAreaProvider>
+      <BasicProvider project_id={schema.project_id} schema={schema}>
+        <SettingsProvider>
+          <StatusBar style="dark" />
+          {isLargeScreen ? <HomeScreen /> : <MobileHomeScreen />}
+        </SettingsProvider>
+      </BasicProvider>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  content: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  logo: {
-    width: 200,
-    height: 100,
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 18,
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  reactContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  poweredBy: {
-    fontSize: 14,
-    marginRight: 6,
-  },
-  reactLogo: {
-    width: 24,
-    height: 24,
-  },
-  themeToggle: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    padding: 10,
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
