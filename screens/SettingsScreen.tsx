@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   View,
@@ -16,6 +15,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettings } from '../context/SettingsContext';
+import { isValidUrl } from '../services/api';
 
 interface SettingsScreenProps {
   onClose?: () => void;
@@ -36,6 +36,17 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onClose }) => {
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
+    // Validate URLs
+    if (!isValidUrl(partsUrl)) {
+      Alert.alert('Invalid URL', 'Please enter a valid URL for Parts API');
+      return;
+    }
+    
+    if (!isValidUrl(labourUrl)) {
+      Alert.alert('Invalid URL', 'Please enter a valid URL for Labour API');
+      return;
+    }
+    
     try {
       setIsSaving(true);
       await updatePartsApiUrl(partsUrl);

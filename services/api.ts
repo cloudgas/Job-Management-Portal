@@ -1,8 +1,8 @@
-
 import { Item } from '../types';
 import { useSettings } from '../context/SettingsContext';
 
 const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes in milliseconds
+const FETCH_TIMEOUT = 10000; // 10 seconds timeout
 
 interface CacheItem {
   data: Item[];
@@ -14,33 +14,62 @@ const cache: Record<string, CacheItem> = {
   labour: { data: [], timestamp: 0 },
 };
 
+// Helper function to add timeout to fetch
+const fetchWithTimeout = async (url: string, options = {}, timeout = FETCH_TIMEOUT): Promise<Response> => {
+  const controller = new AbortController();
+  const { signal } = controller;
+  
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeout);
+  
+  try {
+    const response = await fetch(url, { ...options, signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+};
+
 const fetchWithRetry = async (url: string, retries = 3): Promise<Response> => {
   let lastError;
   
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const response = await fetchWithTimeout(url);
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      }
       return response;
-    } catch (error) {
+    } catch (error: any) {
+      console.warn(`Fetch attempt ${i + 1} failed:`, error.message || 'Unknown error');
       lastError = error;
+      
+      // Don't retry if it was aborted (timeout) or if it's the last attempt
+      if (error.name === 'AbortError' || i === retries - 1) {
+        break;
+      }
+      
       // Wait a bit before retrying (exponential backoff)
       await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
     }
   }
   
-  throw lastError;
+  throw lastError || new Error('Failed to fetch after multiple attempts');
 };
 
 export const useFetchParts = () => {
   const { partsApiUrl } = useSettings();
   
-  const fetchParts = async (): Promise<Item[]> => {
+  const fetchParts = async (): Promise<{ data: Item[], fromCache: boolean, error?: string }> => {
     const now = Date.now();
     
     // Return cached data if it's still valid
     if (cache.parts.data.length > 0 && now - cache.parts.timestamp < CACHE_EXPIRY) {
-      return cache.parts.data;
+      return { data: cache.parts.data, fromCache: true };
     }
     
     try {
@@ -53,17 +82,25 @@ export const useFetchParts = () => {
         timestamp: now,
       };
       
-      return data;
-    } catch (error) {
+      return { data, fromCache: false };
+    } catch (error: any) {
       console.error('Error fetching parts:', error);
       
       // Return cached data even if expired in case of error
       if (cache.parts.data.length > 0) {
-        return cache.parts.data;
+        return { 
+          data: cache.parts.data, 
+          fromCache: true, 
+          error: `Failed to fetch latest data: ${error.message || 'Network error'}. Showing cached data.` 
+        };
       }
       
       // If no cached data, return mock data
-      return getMockParts();
+      return { 
+        data: getMockParts(), 
+        fromCache: false, 
+        error: `Failed to fetch data: ${error.message || 'Network error'}. Showing sample data.` 
+      };
     }
   };
   
@@ -73,12 +110,12 @@ export const useFetchParts = () => {
 export const useFetchLabour = () => {
   const { labourApiUrl } = useSettings();
   
-  const fetchLabour = async (): Promise<Item[]> => {
+  const fetchLabour = async (): Promise<{ data: Item[], fromCache: boolean, error?: string }> => {
     const now = Date.now();
     
     // Return cached data if it's still valid
     if (cache.labour.data.length > 0 && now - cache.labour.timestamp < CACHE_EXPIRY) {
-      return cache.labour.data;
+      return { data: cache.labour.data, fromCache: true };
     }
     
     try {
@@ -91,21 +128,39 @@ export const useFetchLabour = () => {
         timestamp: now,
       };
       
-      return data;
-    } catch (error) {
+      return { data, fromCache: false };
+    } catch (error: any) {
       console.error('Error fetching labour:', error);
       
       // Return cached data even if expired in case of error
       if (cache.labour.data.length > 0) {
-        return cache.labour.data;
+        return { 
+          data: cache.labour.data, 
+          fromCache: true, 
+          error: `Failed to fetch latest data: ${error.message || 'Network error'}. Showing cached data.` 
+        };
       }
       
       // If no cached data, return mock data
-      return getMockLabour();
+      return { 
+        data: getMockLabour(), 
+        fromCache: false, 
+        error: `Failed to fetch data: ${error.message || 'Network error'}. Showing sample data.` 
+      };
     }
   };
   
   return { fetchLabour };
+};
+
+// Helper function to validate URL
+export const isValidUrl = (url: string): boolean => {
+  try {
+    new URL(url);
+    return true;
+  } catch (e) {
+    return false;
+  }
 };
 
 // Mock data for testing or when API is unavailable

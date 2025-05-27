@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -6,6 +5,7 @@ interface SettingsContextType {
   partsApiUrl: string;
   labourApiUrl: string;
   isLoading: boolean;
+  error: string | null;
   updatePartsApiUrl: (url: string) => Promise<void>;
   updateLabourApiUrl: (url: string) => Promise<void>;
   resetToDefaults: () => Promise<void>;
@@ -25,12 +25,15 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [partsApiUrl, setPartsApiUrl] = useState<string>(DEFAULT_PARTS_API_URL);
   const [labourApiUrl, setLabourApiUrl] = useState<string>(DEFAULT_LABOUR_API_URL);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Load settings from AsyncStorage on mount
   useEffect(() => {
     const loadSettings = async () => {
       try {
         setIsLoading(true);
+        setError(null);
+        
         const storedPartsUrl = await AsyncStorage.getItem(STORAGE_KEYS.PARTS_API_URL);
         const storedLabourUrl = await AsyncStorage.getItem(STORAGE_KEYS.LABOUR_API_URL);
 
@@ -38,6 +41,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         if (storedLabourUrl) setLabourApiUrl(storedLabourUrl);
       } catch (error) {
         console.error('Error loading settings:', error);
+        setError('Failed to load settings. Using defaults.');
       } finally {
         setIsLoading(false);
       }
@@ -49,10 +53,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   // Update parts API URL
   const updatePartsApiUrl = async (url: string) => {
     try {
+      setError(null);
       await AsyncStorage.setItem(STORAGE_KEYS.PARTS_API_URL, url);
       setPartsApiUrl(url);
     } catch (error) {
       console.error('Error saving parts API URL:', error);
+      setError('Failed to save parts API URL.');
       throw error;
     }
   };
@@ -60,10 +66,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   // Update labour API URL
   const updateLabourApiUrl = async (url: string) => {
     try {
+      setError(null);
       await AsyncStorage.setItem(STORAGE_KEYS.LABOUR_API_URL, url);
       setLabourApiUrl(url);
     } catch (error) {
       console.error('Error saving labour API URL:', error);
+      setError('Failed to save labour API URL.');
       throw error;
     }
   };
@@ -71,6 +79,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   // Reset to default values
   const resetToDefaults = async () => {
     try {
+      setError(null);
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.PARTS_API_URL,
         STORAGE_KEYS.LABOUR_API_URL,
@@ -79,6 +88,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       setLabourApiUrl(DEFAULT_LABOUR_API_URL);
     } catch (error) {
       console.error('Error resetting settings:', error);
+      setError('Failed to reset settings.');
       throw error;
     }
   };
@@ -87,6 +97,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     partsApiUrl,
     labourApiUrl,
     isLoading,
+    error,
     updatePartsApiUrl,
     updateLabourApiUrl,
     resetToDefaults,
